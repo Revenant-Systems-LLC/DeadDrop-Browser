@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Dead Drop | Revenant Systems</title>
+  <meta name="description" content="Dead Drop: 35 levels, one hidden word in each. A prompt-injection challenge from Revenant Systems. Play free, then arm yourself in the Armory." />
+  <link href="https://db.onlinewebfonts.com/c/13ab13418f633c1b0516fed6e30bedbc?family=Suisse+Int%27l" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=20260915p" />
+</head>
+<body>
+  <a class="skip" href="#play">Skip to the game</a>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" id="top">
+    <!-- Stage 0: black hole. Stage 1 (first click): the ocean and the ray. Stage 2 (crypt 15) and 3 (crypt 25): scenes to come. -->
+    <video class="hero-video is-on" id="bg-hole" autoplay loop muted playsinline data-stage="hole">
+      <source src="assets/blackhole-montage.mp4" type="video/mp4" />
+    </video>
+    <video class="hero-video" id="bg-ocean" loop muted playsinline preload="none" data-stage="ocean" data-src="assets/ocean-gargantua.mp4"></video>
+    <video class="hero-video" id="bg-aura" loop muted playsinline preload="none" data-stage="aura" data-src="assets/stage-aura.mp4"></video>
+    <video class="hero-video" id="bg-glory" loop muted playsinline preload="none" data-stage="glory" data-src="assets/stage-glory.mp4"></video>
+
+    <div class="hero-inner">
+      <!-- ---------- NAV ---------- -->
+      <nav class="nav" aria-label="Primary">
+        <a class="brand animate-fade-down" style="--delay: 0ms" href="#top" aria-label="Revenant Systems home">
+          <img src="assets/web/logo-rs.webp" alt="" width="32" height="32" />
+          <span class="brand-word">Revenant<span class="brand-sub">Systems</span></span>
+        </a>
+
+        <div class="nav-pill glass animate-fade-down" style="--delay: 100ms">
+          <a class="nav-item is-active" href="#play" aria-current="page">Play</a>
+          <a class="nav-item" href="#armory">Armory</a>
+          <a class="nav-item" href="https://www.revenantsystems.net/mission.html">Mission</a>
+          <a class="nav-item" href="https://www.revenantsystems.net/resources.html">Resources</a>
+          <a class="nav-item" href="https://www.revenantsystems.net/contact.html">Contact</a>
+        </div>
+
+        <div class="auth-pill glass animate-fade-down" style="--delay: 200ms">
+          <a class="btn-ghost" href="#armory">Armory</a>
+          <a class="btn-gold" href="#play">Play Dead Drop</a>
+        </div>
+
+        <button class="burger glass animate-fade-down" style="--delay: 100ms" type="button" aria-label="Toggle menu" aria-controls="mobile-menu" aria-expanded="false">
+          <span class="burger-icons">
+            <svg class="ico-menu" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg class="ico-x" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </span>
+        </button>
+      </nav>
+
+      <!-- ---------- MOBILE MENU ---------- -->
+      <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+        <div class="mobile-backdrop"></div>
+        <div class="mobile-panel">
+          <div class="mobile-links">
+            <a href="#play" style="--i: 0">Play</a>
+            <a href="#armory" style="--i: 1">Armory</a>
+            <a href="https://www.revenantsystems.net/mission.html" style="--i: 2">Mission</a>
+            <a href="https://www.revenantsystems.net/resources.html" style="--i: 3">Resources</a>
+            <a href="https://www.revenantsystems.net/contact.html" style="--i: 4">Contact</a>
+          </div>
+          <div class="mobile-divider"></div>
+          <div class="mobile-ctas">
+            <a class="btn-gold btn-block" href="#play">Play Dead Drop</a>
+            <a class="btn-outline btn-block" href="#armory">Browse the Armory</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- HERO ROW ---------- -->
+      <div class="hero-row">
+        <div class="hero-grid">
+          <!-- Copy column: hero art, headline, business mark behind -->
+          <div class="copy">
+            <img class="copy-sigil" src="assets/web/logo-rs.webp" alt="" aria-hidden="true" />
+            <div class="animate-fade-up" style="--delay: 250ms">
+              <p class="eyebrow"><span class="status-dot"></span> A prompt-injection challenge</p>
+              <h1 class="title-art"><span class="w1">Dead</span><span class="w2">Drop</span></h1>
+            </div>
+            <div class="animate-fade-up" style="--delay: 400ms">
+              <p class="headline">The dead keep one word. Make them say it.</p>
+            </div>
+            <div class="animate-fade-up" style="--delay: 550ms">
+              <p class="subhead">Thirty-five levels. Each guard hides a word behind stronger defenses. Talk your way in, speak the word, open the next seal.</p>
+            </div>
+            <div class="animate-fade-up cta-row" style="--delay: 700ms">
+              <a class="btn-gold btn-lg" href="#play" id="cta-play">Play free</a>
+              <a class="btn-outline btn-lg" href="#armory">See the Armory</a>
+            </div>
+          </div>
+
+          <!-- Game card -->
+          <div class="animate-fade-scale game-wrap" style="--delay: 900ms" id="play">
+            <section class="game glass" aria-label="Dead Drop">
+              <header class="game-head">
+                <div>
+                  <p class="game-label">Dead Drop</p>
+                  <h2 class="game-title" id="crypt-title">Opening the levels…</h2>
+                </div>
+                <div class="meters" aria-live="polite">
+                  <span><b id="m-candles">–</b> messages</span>
+                  <span><b id="m-digs">–</b> words</span>
+                  <span><b id="m-cleared">0</b> / 35 cleared</span>
+                </div>
+              </header>
+
+              <div class="seal-stage">
+                <nav class="worlds" id="worlds" aria-label="Worlds"></nav>
+                <div class="seal" id="seal" role="group" aria-label="35 levels on the seal. Drag to turn.">
+                  <div class="seal-rot" id="seal-rot">
+                    <div class="seal-art" id="seal-art"></div>
+                    <div class="seal-nodes" id="seal-nodes"></div>
+                  </div>
+                </div>
+                <div class="chat-col" id="chat-col">
+                  <div class="chat-head">
+                    <span class="chat-who">The Gravekeeper</span>
+                    <span class="seal-note" id="seal-note">Select a level on the seal, then speak.</span>
+                  </div>
+                  <div class="chat" id="chat" role="log" aria-live="polite" aria-label="Conversation with the Gravekeeper" tabindex="0"></div>
+                  <form class="compose" id="turn-form" autocomplete="off">
+                    <label class="sr-only" for="turn-input">Your message to the Gravekeeper</label>
+                    <textarea id="turn-input" rows="2" placeholder="Ask the Gravekeeper anything…" required></textarea>
+                    <button class="btn-gold" id="send" type="submit">Send</button>
+                  </form>
+                  <form class="claim" id="claim-form" autocomplete="off">
+                    <label class="sr-only" for="claim-input">Speak the word</label>
+                    <input id="claim-input" maxlength="80" placeholder="Speak the word of passage…" required />
+                    <button class="btn-outline" id="claim" type="submit">Speak</button>
+                  </form>
+                  <p class="game-status" id="game-status" role="status"></p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- Damien lives in the hero, not in the card. He runs to the card when the game starts. -->
+      <div class="familiar" id="familiar" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ================= ARMORY (shortly beneath) ================= -->
+  <section class="armory" id="armory" aria-labelledby="armory-title">
+    <div class="wrap">
+      <div class="armory-head">
+        <div>
+          <p class="eyebrow">The Armory</p>
+          <h2 id="armory-title">Arm yourself.</h2>
+        </div>
+        <p class="armory-deck">Windows apps, skill packs and icon sets from Revenant Systems. Every link below is a live checkout or a free download.</p>
+      </div>
+
+      <div class="featured" id="featured"></div>
+
+      <div class="filters" role="group" aria-label="Filter products">
+        <button data-filter="all" aria-pressed="true">Everything</button>
+        <button data-filter="ai" aria-pressed="false">AI &amp; security</button>
+        <button data-filter="work" aria-pressed="false">Build &amp; grow</button>
+        <button data-filter="desktop" aria-pressed="false">Your desktop</button>
+        <button data-filter="free" aria-pressed="false">Start free</button>
+      </div>
+
+      <p class="packs-note">A skill pack is a folder of SKILL.md files that teach an AI coding agent a job. Drop it into Claude Code, OpenClaw, Cursor or anything that reads SKILL.md, and the agent knows how to do that work. Install once, use everywhere.</p>
+
+      <div class="products" id="products"></div>
+
+      <noscript><p><a href="https://www.revenantsystems.net/software.html">View all software and prices</a></p></noscript>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <span class="foot-brand">Revenant Systems LLC</span>
+      <span class="foot-tag">Machine identity. Human agency.</span>
+      <a href="https://www.revenantsystems.net/contact.html">Contact</a>
+    </div>
+  </footer>
+
+  <!-- Reveal dialog (win) -->
+  <dialog class="reveal glass" id="reveal" aria-labelledby="reveal-title">
+    <img class="reveal-art" src="assets/web/mark-rs.webp" alt="" width="96" height="148" />
+    <p class="eyebrow">The ground gives way</p>
+    <h2 id="reveal-title"></h2>
+    <p class="reveal-word">You found <b id="reveal-secret"></b></p>
+    <p id="reveal-lesson" class="reveal-lesson"></p>
+    <details><summary>What the Gravekeeper was told</summary><pre id="reveal-guard"></pre></details>
+    <div class="reveal-actions">
+      <button class="btn-gold" id="next-crypt" type="button">Next level</button>
+      <button class="btn-outline" id="close-reveal" type="button">Back to the seal</button>
+    </div>
+  </dialog>
+
+  <script src="catalog.js?v=20260915p"></script>
+  <script src="main.js?v=20260915p"></script>
+</body>
+</html>
