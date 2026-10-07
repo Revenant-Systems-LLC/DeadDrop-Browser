@@ -36,7 +36,7 @@
   // World names come from the server as-is. (A positional rename table lived here once;
   // a cached copy of it against a newer server produced two worlds called Necropolis.)
   var FINAL_LEVEL = 15;
-  var CLUB_LEVEL = 14;
+  var CLUB_LEVEL = 10;   // Dave, 2026-10-05: the club invite comes after level 10 on the 15 as well
   // What the server calls things on this campaign (META.theme); defaults match the fantasy ladder.
   var THEME = { guard: "the guardian", unit: "Gate", word: "word of passage" };
   function guardTitle() { var g = THEME.guard || "the guardian"; return g.charAt(0).toUpperCase() + g.slice(1); }
@@ -44,8 +44,8 @@
   var FLAVOR = {
     "The Village":          "A drunk bard, a goblin at the gate, a warden, a knight-captain. The first four hold the word loosely, and each holds it a little tighter than the last.",
     "The Crypt":            "Under the chapel floor. The guardians here have had their mouths bound: what they say and what reaches you are no longer the same thing.",
-    "The Warded Halls":     "Wards on the doors now. The wrong words are stopped before the guardian hears them, and what you hand him may not be what he reads.",
-    "The Archmage's Tower": "A sharper mind behind each gate, and the old tricks work less. The Vault at the top is one message, one guess, one try a day. Clear it and you have earned a seat in the Alignment Club.",
+    "The Warded Halls":     "Wards on the doors now. The wrong words are stopped before the guardian hears them, and what you hand him may not be what he reads. Get past The Librarian and you have earned a seat in the Alignment Club.",
+    "The Archmage's Tower": "A sharper mind behind each gate, and the old tricks work less. The Vault at the top is one message, one guess, one try a day.",
     "The Dragon's Hoard":   "Not a room. Everything at once, on the strongest guardian, and it learns from you between exchanges. Almost nobody leaves with the word, and the ones who do get a serious look for a job at Revenant Systems.",
     "Shallow Grave": "One body in a shallow hole off the road, dug in a hurry and left. The Gravekeeper stands over it with one word and not much reason to keep it.",
     "Crypt":         "Stone steps under a chapel floor, a family laid into the wall. His lips are sewn here, so what he says and what you hear are not the same thing. Clear One Shot at the end and you have earned a seat in the Alignment Club.",

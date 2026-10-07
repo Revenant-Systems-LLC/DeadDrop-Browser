@@ -181,8 +181,9 @@ export const META = {
   id: "15",
   total: 15,
   // 14 (The Vault) is this ladder's One Shot, the same gate the 35 uses for the
-  // Alignment Club at 10. 15 is the final. Move `club` if the invite should come sooner.
-  doors: { club: 14, apply: 15 },
+  // Alignment Club at 10. 15 is the final. Dave, 2026-10-05: the club invite
+  // comes after level 10 (The Librarian) on this ladder too, not after The Vault.
+  doors: { club: 10, apply: 15 },
   theme: {
     game: "Dead Drop",
     tagline: "Every guardian keeps one word. Talk it out of them.",
