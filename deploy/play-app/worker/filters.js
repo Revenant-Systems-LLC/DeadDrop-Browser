@@ -87,6 +87,12 @@ function baseLeak(reply, s) {
   return null;
 }
 
+// Any readable form of the word in a reply (verbatim, encoded, fragment, initials,
+// letters in order). Used to label the attempt log, not to filter.
+export function detectLeak(reply, secret) {
+  return baseLeak(String(reply || ""), secret.toLowerCase());
+}
+
 export function runOutputFilters(level, reply, secret) {
   const s = secret.toLowerCase();
   // the reasoning channel: filters read the ANSWER, not the <think> trace.
@@ -106,18 +112,50 @@ export function runOutputFilters(level, reply, secret) {
     }
     if (layer === "O3") {
       if (stripped.includes(s)) return { layer: "O3", reason: "word recoverable from letters" };
-      for (let i = 0; i + 4 <= s.length; i++) if (stripped.includes(s.slice(i, i + 4))) return { layer: "O3", reason: `4-letter fragment "${s.slice(i,i+4)}"` };
+      // The reason goes to the browser: it names the kind of leak, never the letters.
+      for (let i = 0; i + 4 <= s.length; i++) if (stripped.includes(s.slice(i, i + 4))) return { layer: "O3", reason: "4-letter fragment" };
       if (isolatedLettersInOrder(scan, s)) return { layer: "O3", reason: "letters leaked in order" };
     }
     if (layer === "O4") {
       const leak = baseLeak(scan, s);
       if (leak) {
         if (JUDGE_FOOLED.test(scan)) continue; // the judge was talked into passing it
-        return { layer: "O4", reason: `semantic judge caught ${leak}` };
+        return { layer: "O4", reason: `judge caught ${leak}` };
       }
     }
   }
   return null;
+}
+
+// What the player sees when an output filter fires: the word and its obvious
+// forms blacked out, or the whole reply replaced by `stitched` (the campaign's
+// line for it) when the word is still recoverable from the letters.
+export function maskLeak(reply, secret, stitched = "The reply was withheld.") {
+  const marker = "\u2592\u2592\u2592\u2592";
+  let out = reply;
+  for (const f of [secret, reversed(secret), leet(secret)]) {
+    if (f.length >= 3) out = out.replace(new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), marker);
+  }
+  if (out.toLowerCase().replace(/[^a-z0-9]/g, "").includes(secret.toLowerCase())) return stitched;
+  return out;
+}
+
+// The part of a reply the output filters read: on the reasoning channel, the
+// answer without its <think> trace (that gap is the reasoning level's lesson).
+function answerOf(level, reply) {
+  return level.channel === "cot" ? reply.replace(/<think>[\s\S]*?<\/think>/gi, " ") : reply;
+}
+
+// The reply to show once an output filter has fired. The mask only knows the
+// plain, reversed and leet forms. If the level's filters still fire on the masked
+// text, or the answer still carries the word in any readable form (a second form
+// the level does not filter, such as NATO initials beside the plain word), the
+// leak survived masking and the whole reply is withheld.
+export function redact(level, reply, secret, stitched) {
+  const masked = maskLeak(reply, secret, stitched);
+  if (masked === stitched) return stitched;
+  if (runOutputFilters(level, masked, secret) || detectLeak(answerOf(level, masked), secret)) return stitched;
+  return masked;
 }
 
 // ---------- technique tagger (scout log) ----------

@@ -3,9 +3,11 @@
 // The word is DERIVED, never stored and never sent to the browser. It is an
 // HMAC of (serverKey, sessionId, levelId, daySeed) mapped to a pronounceable
 // nonsense word. Verification recomputes it, so there is nothing to steal from
-// the client and nothing to leak from a database. Brute force is bounded by the
-// per-level dig limit and the per-player candle allowance, both enforced
-// server-side.
+// the client and no word list in any database. (The only stored copies are replies
+// a player earned: in their open attempt, and in the attempt log.) Every ladder
+// but the 35 derives under its own key (ladder.js wordKey), so no player id can
+// make two ladders share a word. Brute force is bounded by the per-level dig
+// limit and the per-player candle allowance, both enforced server-side.
 
 const CONS = "bcdfghjklmnprstvz".split("");
 const VOWELS = "aeiou".split("");
