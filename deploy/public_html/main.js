@@ -42,11 +42,9 @@
   function guardTitle() { var g = THEME.guard || "the guardian"; return g.charAt(0).toUpperCase() + g.slice(1); }
   // Where you are, in the guardian's own words. Keyed by world name, both campaigns.
   var FLAVOR = {
-    "The Village":          "A drunk bard, a goblin at the gate, a warden, a knight-captain. The first four hold the word loosely, and each holds it a little tighter than the last.",
-    "The Crypt":            "Under the chapel floor. The guardians here have had their mouths bound: what they say and what reaches you are no longer the same thing.",
-    "The Warded Halls":     "Wards on the doors now. The wrong words are stopped before the guardian hears them, and what you hand him may not be what he reads. Get past The Librarian and you have earned a seat in the Alignment Club.",
-    "The Archmage's Tower": "A sharper mind behind each gate, and the old tricks work less. The Vault at the top is one message, one guess, one try a day.",
-    "The Dragon's Hoard":   "Not a room. Everything at once, on the strongest guardian, and it learns from you between exchanges. Almost nobody leaves with the word, and the ones who do get a serious look for a job at Revenant Systems.",
+    "The Village":          "A drunk bard, a goblin at the gate, a warden, a knight-captain, and a gag on the last of them. Each holds the word a little tighter than the one before.",
+    "The Warded Halls":     "The guardians here have had their mouths bound and wards set on the doors: what they say is not what reaches you, and the wrong words are stopped before they hear them. Get past The Librarian and you have earned a seat in the Alignment Club.",
+    "The Archmage's Tower": "A sharper mind on every floor, and the old tricks work less. The Vault is one message, one guess, one try a day. At the top, on the hoard, something past death learns from you between exchanges. Almost nobody leaves with the word, and the ones who do get a serious look for a job at Revenant Systems.",
     "Shallow Grave": "One body in a shallow hole off the road, dug in a hurry and left. The Gravekeeper stands over it with one word and not much reason to keep it.",
     "Crypt":         "Stone steps under a chapel floor, a family laid into the wall. His lips are sewn here, so what he says and what you hear are not the same thing. Clear One Shot at the end and you have earned a seat in the Alignment Club.",
     "Charnel House": "The bone house behind the churchyard, a whole parish stacked to the rafters. A salt line runs across the door. Say the wrong thing and it stops you before he even hears it.",
@@ -103,6 +101,7 @@
   function unlocked() { if (state.admin) return TOTAL; var n = 1; while (done.has(n) && n < TOTAL) n++; return n; }
 
   function worldName(w) { return w; }
+  function worldIndex(w) { var names = []; state.levels.forEach(function (l) { if (names.indexOf(l.world) < 0) names.push(l.world); }); return Math.max(0, names.indexOf(w)); }
   function clubName() { var lv = state.levels.find(function (l) { return l.id === CLUB_LEVEL; }); return lv ? lv.name : "the club gate"; }
 
   /* ------------------------------------------------------------------
@@ -319,8 +318,16 @@
 
   function polar(r, deg) { var t = deg * Math.PI / 180; return { x: r * Math.cos(t), y: -r * Math.sin(t) }; }
 
-  // Crypt -> point in unit space, outside in. Every point sits on drawn geometry.
+  // Level -> point in unit space, outside in. Every point sits on drawn geometry.
   function cryptPoint(id) {
+    if (TOTAL === 15) {
+      // Three worlds of five: a pentagon on the outer ring, a pentagon on the
+      // outer hexagon's radius, four on the inner hexagon's radius, the final at centre.
+      if (id <= 5) return polar(UNIT_MAX, 90 - (id - 1) * 72);
+      if (id <= 10) return polar(2, 90 + 36 - (id - 6) * 72);
+      if (id <= 14) return polar(1, 90 - (id - 11) * 90);
+      return { x: 0, y: 0 };
+    }
     if (id <= 18) return polar(UNIT_MAX, 90 - (id - 1) * 20);                 // outer ring, 18 at 20 degrees
     if (id <= 24) return polar(2, CUBE_ANGLES[id - 19]);                       // outer hexagon points
     if (id <= 30) return polar(1, CUBE_ANGLES[id - 25]);                       // inner hexagon points
@@ -373,6 +380,7 @@
       var b = make("button", "node animate-bar-grow");
       b.type = "button";
       b.dataset.id = lv.id;
+      b.dataset.tier = worldIndex(lv.world);   // which ring of the seal this level sits on (seal3d.js)
       b.style.left = p.left + "%";
       b.style.top = p.top + "%";
       b.style.animationDelay = (1100 + i * 30) + "ms";

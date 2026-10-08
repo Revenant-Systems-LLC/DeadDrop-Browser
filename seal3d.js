@@ -126,18 +126,48 @@
   // the seal follows whichever campaign the server serves.
   var CENTER = [0, 0, 0];
   var slotFor = {}, FINAL = 0, slotted = 0;
+
+  // The lattice's five-fold axis: through an icosahedron vertex. Around it the
+  // icosahedron has a pentagonal ring of five vertices and the dodecahedron a
+  // pentagonal face of five, both centred on the axis. Those two pentagons plus
+  // the inner tetrahedron's four corners and the centre make 15 seats, one
+  // world per shell, outside in. The camera opens looking down this axis.
+  var AXIS = norm(ICO[0]);
+  function azimuth(v) {                                   // angle around AXIS, for ordering a ring
+    var u = norm(cross(AXIS, Math.abs(AXIS[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), w = cross(AXIS, u);
+    return Math.atan2(dot(v, w), dot(v, u));
+  }
+  function ring(verts, pick) {
+    var r = verts.map(function (v) { return { v: v, d: dot(norm(v), AXIS) }; }).filter(pick)
+      .map(function (o) { return o.v; });
+    r.sort(function (a, b) { return azimuth(a) - azimuth(b); });
+    return r;
+  }
+  var RING_OUTER = ring(SOLIDS[0].verts, function (o) { return o.d > 0.3 && o.d < 0.6; });   // icosa upper pentagon (5)
+  var RING_MID = ring(SOLIDS[1].verts, function (o) { return o.d > 0.7; });                   // dodeca top face (5)
+  var RING_INNER = ring(SOLIDS[3].verts, function () { return true; });                       // tetrahedron (4)
+
   function slot(nodes) {
     if (nodes.length === slotted) return;
     slotted = nodes.length;
     slotFor = {}; FINAL = 0;
-    var ids = [];
-    for (var i = 0; i < nodes.length; i++) ids.push(+nodes[i].dataset.id);
+    var ids = [], tiers = {};
+    for (var i = 0; i < nodes.length; i++) { ids.push(+nodes[i].dataset.id); tiers[+nodes[i].dataset.id] = +nodes[i].dataset.tier; }
     ids.sort(function (a, b) { return a - b; });
     if (!ids.length) return;
     FINAL = ids[ids.length - 1];
     slotFor[FINAL] = CENTER;
-    // Fill from the outermost vertex inward: every outer vertex carries a
-    // number and the only bare dots left are the innermost, tucked in the middle.
+    var byTier = [[], [], []], tiered = ids.every(function (id) { return !isNaN(tiers[id]) && tiers[id] >= 0 && tiers[id] <= 2; });
+    if (tiered && RING_OUTER.length === 5 && RING_MID.length === 5) {
+      ids.forEach(function (id) { if (id !== FINAL) byTier[tiers[id]].push(id); });
+      if (byTier[0].length <= 5 && byTier[1].length <= 5 && byTier[2].length <= 4) {
+        byTier[0].forEach(function (id, k) { slotFor[id] = RING_OUTER[k]; });
+        byTier[1].forEach(function (id, k) { slotFor[id] = RING_MID[k]; });
+        byTier[2].forEach(function (id, k) { slotFor[id] = RING_INNER[k]; });
+        return;
+      }
+    }
+    // Any other campaign: fill from the outermost vertex inward.
     for (var k = 0; k < ids.length - 1; k++) slotFor[ids[k]] = VERTS[k];
   }
 
@@ -149,7 +179,9 @@
     { min: -9, w: 0.3, o: 0.26, dot: 0.28 },     // far
   ];
 
-  var q = qAxis([1, 0.6, 0.3], 5.12);           // opening tilt chosen to spread the 35 nodes apart
+  // Opening view: down the five-fold axis so the three rings read as nested
+  // pentagons, with a small tilt so the lattice has depth from the first frame.
+  var q = qMul(qAxis([1, 0.35, 0], 0.42), qBetween(AXIS, [0, 0, 1]));
   var vel = { axis: [0.3, 1, 0.15], mag: 0 };    // deg/s about axis
   var IDLE = reduceMotion ? 0 : 14, SPIN_MAX = 1400;
   var zoom = 1, zoomTarget = 1, pan = [0, 0], panTarget = [0, 0];
