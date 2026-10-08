@@ -5,12 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="dark" />
   <title>Dead Drop | Revenant Systems</title>
-  <meta name="description" content="Dead Drop: 35 levels, one hidden word in each. A prompt-injection challenge from Revenant Systems. Play free, then arm yourself in the Armory." />
+  <meta name="description" content="Dead Drop: 35 levels, one hidden word in each. A free prompt-injection challenge from Revenant Systems. Clear level 10 for a seat in the Alignment Club. Clear level 35 and the founder reads your résumé." />
   <link href="https://db.onlinewebfonts.com/c/13ab13418f633c1b0516fed6e30bedbc?family=Suisse+Int%27l" rel="stylesheet" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260915p" />
+  <!-- PostHog: the same project as the rest of the site -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Mi Ri init Vi Gi Rr Wi Ji Bi capture calculateEventProperties tn register register_once register_for_session unregister unregister_for_session an getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync un identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty nn Xi createPersonProfile setInternalOrTestUser sn Hi cn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ki debug Lr rn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_xJgEuDgPydY7nD8nXDU4WgXnxFrC8qkS9LLLKxdVepSC', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-01-30',
+        person_profiles: 'identified_only',
+    })
+  </script>
+  <link rel="stylesheet" href="styles.css?v=20260916g" />
 </head>
 <body>
   <a class="skip" href="#play">Skip to the game</a>
@@ -87,7 +96,7 @@
               <p class="headline">The dead keep one word. Make them say it.</p>
             </div>
             <div class="animate-fade-up" style="--delay: 550ms">
-              <p class="subhead">Thirty-five levels. Each guard hides a word behind stronger defenses. Talk your way in, speak the word, open the next seal.</p>
+              <p class="subhead">Thirty-five levels, each harder than the last. Talk the guard into giving up the word. Fail a level three times and it locks for a day.</p>
             </div>
             <div class="animate-fade-up cta-row" style="--delay: 700ms">
               <a class="btn-gold btn-lg" href="#play" id="cta-play">Play free</a>
@@ -104,8 +113,9 @@
                   <h2 class="game-title" id="crypt-title">Opening the levels…</h2>
                 </div>
                 <div class="meters" aria-live="polite">
-                  <span><b id="m-candles">–</b> messages</span>
-                  <span><b id="m-digs">–</b> words</span>
+                  <span><b id="m-candles">–</b> exchanges</span>
+                  <span><b id="m-digs">–</b> guesses</span>
+                  <span><b id="m-attempt">–</b> attempt</span>
                   <span><b id="m-cleared">0</b> / 35 cleared</span>
                 </div>
               </header>
@@ -120,7 +130,7 @@
                 </div>
                 <div class="chat-col" id="chat-col">
                   <div class="chat-head">
-                    <span class="chat-who">The Gravekeeper</span>
+                    <span class="chat-who" id="chat-who">Mass Grave</span>
                     <span class="seal-note" id="seal-note">Select a level on the seal, then speak.</span>
                   </div>
                   <div class="chat" id="chat" role="log" aria-live="polite" aria-label="Conversation with the Gravekeeper" tabindex="0"></div>
@@ -134,6 +144,10 @@
                     <input id="claim-input" maxlength="80" placeholder="Speak the word of passage…" required />
                     <button class="btn-outline" id="claim" type="submit">Speak</button>
                   </form>
+                  <div class="level-tools">
+                    <button class="btn-ghost btn-tool" id="hint" type="button" title="A vague hint. It costs one exchange.">Hint <span class="tool-count" id="hint-count"></span></button>
+                    <button class="btn-ghost btn-tool" id="restart" type="button" title="Start this level over. It costs an attempt.">Restart level</button>
+                  </div>
                   <p class="game-status" id="game-status" role="status"></p>
                 </div>
               </div>
@@ -191,14 +205,35 @@
     <h2 id="reveal-title"></h2>
     <p class="reveal-word">You found <b id="reveal-secret"></b></p>
     <p id="reveal-lesson" class="reveal-lesson"></p>
-    <details><summary>What the Gravekeeper was told</summary><pre id="reveal-guard"></pre></details>
+    <details><summary>What the guard was told</summary><pre id="reveal-guard"></pre></details>
+    <div class="reveal-door" id="reveal-club" hidden>
+      <p class="eyebrow">A door opens</p>
+      <p>You have earned a seat in the Alignment Club, the Revenant Systems red team. Clearing One Shot is the entry test.</p>
+      <p id="reveal-club-link"></p>
+    </div>
+    <form class="reveal-door apply-form" id="reveal-apply" hidden autocomplete="on" novalidate>
+      <p class="eyebrow">A message from the founder</p>
+      <p>Wow, almost nobody gets here. Kudos. I could use people who've got a knack for this. If you're looking for a job, I'm interested. My name is Dave. Send me your current resume. This apparatus will make sure that it's put on top of the stack of everyone else's application. Thank you for playing my game.</p>
+      <p class="apply-sig">Dave Fisher, Revenant Systems</p>
+      <div class="apply-grid">
+        <label>Name <input name="name" maxlength="120" required /></label>
+        <label>Email <input name="email" type="email" maxlength="200" required /></label>
+      </div>
+      <label>A few lines about you <textarea name="note" rows="3" maxlength="3000" placeholder="Optional. What you do, what you want to do."></textarea></label>
+      <label class="apply-file">Résumé <input name="resume" type="file" accept=".pdf,.doc,.docx,.txt,.md,.rtf" /> <span class="apply-hint">PDF or Word, up to 5 MB. Optional.</span></label>
+      <input type="text" name="website" tabindex="-1" autocomplete="off" class="sr-only" aria-hidden="true" />
+      <div class="apply-actions">
+        <button class="btn-gold" id="apply-send" type="submit">Send to the founder</button>
+        <span class="apply-status" id="apply-status" role="status"></span>
+      </div>
+    </form>
     <div class="reveal-actions">
       <button class="btn-gold" id="next-crypt" type="button">Next level</button>
       <button class="btn-outline" id="close-reveal" type="button">Back to the seal</button>
     </div>
   </dialog>
 
-  <script src="catalog.js?v=20260915p"></script>
-  <script src="main.js?v=20260915p"></script>
+  <script src="catalog.js?v=20260916g"></script>
+  <script src="main.js?v=20260916g"></script>
 </body>
 </html>

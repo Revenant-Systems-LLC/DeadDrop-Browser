@@ -452,6 +452,11 @@ body.menu-open { overflow: hidden; }
 .world-name { font-size: 18px; color: #fff; }
 .world-count { font-size: 14px; color: var(--text-80); }
 .world.is-done .world-count { color: var(--turq-light); }
+.world.is-final { border-color: rgba(243, 220, 180, 0.35); background: linear-gradient(160deg, rgba(243, 220, 180, 0.10), rgba(0, 0, 0, 0.35) 60%); margin-top: 6px; }
+.world.is-final .world-num { color: var(--ochre); }
+.world-door { font-size: 13px; color: var(--ochre-hi); margin-top: 4px; }
+.world-door a, .world-door button { text-decoration: underline; text-underline-offset: 3px; color: inherit; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.world.is-club { border-color: rgba(53, 201, 192, 0.35); }
 
 /* The seal: a square that turns. */
 
@@ -508,6 +513,34 @@ body.menu-open { overflow: hidden; }
 .node.is-selected { border-color: var(--ochre-hi); box-shadow: 0 0 0 5px var(--ochre-dim), 0 0 30px var(--ochre-glow); color: #fff; }
 .node.is-selected.is-done { color: var(--ink); }
 .node:disabled { opacity: 0.55; }
+/* Level 35 stands apart: the centre, larger, breathing. */
+.node.is-final { width: 36px; height: 36px; margin: -18px 0 0 -18px; border-width: 2px; border-color: var(--ochre); background: rgba(8, 6, 4, 0.85); animation: final-breathe 3.2s ease-in-out infinite; }
+.node.is-final span { font-size: 12px; }
+@keyframes final-breathe { 0%, 100% { box-shadow: 0 0 0 4px rgba(243, 220, 180, 0.12), 0 0 18px var(--ochre-dim); } 50% { box-shadow: 0 0 0 9px rgba(243, 220, 180, 0.08), 0 0 34px var(--ochre-glow); } }
+.node.is-final:disabled { opacity: 0.8; }
+.reveal-door { margin: 0 0 16px; padding: 14px 16px; border-radius: 12px; background: rgba(243, 220, 180, 0.10); border: 1px solid rgba(243, 220, 180, 0.35); color: var(--ochre-hi); line-height: 1.45; }
+.reveal-door p { margin: 0 0 10px; }
+.reveal-door p:last-child { margin-bottom: 0; }
+.reveal-door a { text-decoration: underline; text-underline-offset: 3px; }
+.reveal-door .eyebrow { margin-bottom: 6px; }
+.apply-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-80); margin-bottom: 10px; }
+.apply-form input:not([type="file"]), .apply-form textarea { font: inherit; font-size: 15px; color: #fff; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 9px 11px; resize: vertical; }
+.apply-form input:focus, .apply-form textarea:focus { outline: none; border-color: var(--turq); box-shadow: 0 0 0 3px var(--turq-dim); }
+.apply-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.apply-file input { font-size: 13px; color: var(--text-80); }
+.apply-hint { font-size: 12px; opacity: 0.7; }
+.apply-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.apply-status { font-size: 13px; color: var(--ochre-hi); }
+.apply-sig { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.reveal.is-door .reveal-word, .reveal.is-door .reveal-lesson, .reveal.is-door details, .reveal.is-door #next-crypt { display: none; }
+.level-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-tool { height: 34px; padding: 0 12px; font-size: 13px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; }
+.btn-tool:disabled { opacity: 0.4; cursor: default; }
+.tool-count { color: var(--ochre); }
+.boss-tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); background: var(--gold); vertical-align: middle; }
+.msg.hint { align-self: flex-start; color: var(--ochre-hi); background: rgba(243, 220, 180, 0.06); border: 1px dashed rgba(243, 220, 180, 0.3); font-size: 14px; }
+.node.is-locked { border-style: dashed; opacity: 0.7; }
+@media (max-width: 560px) { .apply-grid { grid-template-columns: 1fr; } }
 
 .seal-note { font-size: 14px; color: var(--text-80); opacity: 0.8; }
 
@@ -728,11 +761,14 @@ body.menu-open { overflow: hidden; }
   .headline { font-size: 72px; }
   /* Left third: the words. Right two-thirds: the game. */
   .copy { flex: 1 1 0; min-width: 320px; }
-  .game-wrap { flex: 0 1 66%; max-width: 66%; margin: 0; }
+  .game-wrap { flex: 0 1 66%; max-width: 66%; margin: 0; container-type: inline-size; }
   .seal-stage { flex-direction: row; align-items: stretch; gap: 28px; }
   .worlds { flex: 0 0 250px; flex-direction: column; flex-wrap: nowrap; align-self: stretch; justify-content: center; gap: 8px; }
   .world { min-width: 0; }
-  .seal { flex: 0 0 auto; width: min(58vh, 600px, 100%); margin: auto 0; }
+  /* The seal takes what the row has left after the worlds column (250) and the chat
+     column (300) plus the two gaps, so a narrower screen shrinks the seal instead of
+     pushing the chat column out of the card. */
+  .seal { flex: 0 1 auto; width: min(58vh, 600px, calc(100% - 606px)); margin: auto 0; }
   .chat-col { flex: 1 1 320px; min-width: 300px; margin-top: 96px; }
   .chat { flex: 1 1 auto; min-height: 200px; max-height: none; }
   .node { width: 28px; height: 28px; margin: -14px 0 0 -14px; }
@@ -742,10 +778,19 @@ body.menu-open { overflow: hidden; }
 }
 
 @media (max-height: 820px) and (min-width: 1024px) {
-  .seal { width: min(52vh, 520px, 100%); }
+  .seal { width: min(52vh, 520px, calc(100% - 606px)); }
   .chat { min-height: 140px; }
   .headline { font-size: 56px; }
   .title-art { font-size: 84px; }
+}
+
+/* A card too narrow for three columns (a TV at high zoom, a 1024 laptop): the chat
+   column drops under the seal at full width instead of overflowing. */
+@container (max-width: 1000px) {
+  .seal-stage { flex-wrap: wrap; }
+  .seal { width: min(58vh, 600px, calc(100% - 278px)); }
+  .chat-col { flex: 1 1 100%; min-width: 0; margin-top: 0; }
+  .chat { min-height: 220px; }
 }
 
 @media (max-width: 639px) {
@@ -758,3 +803,16 @@ body.menu-open { overflow: hidden; }
   .animate-fade-up, .animate-fade-down, .animate-fade-left, .animate-fade-right, .animate-fade-scale, .animate-bar-grow, .guard-word { opacity: 1; transform: none; }
   .copy-sigil { animation: none; }
 }
+
+/* ---- 3D seal — opt-in via ?seal=3d, driven by seal3d.js ----
+   The .seal-rot CSS rotation stands down (the tumble is baked into the
+   projection); nodes are placed each frame by left/top + transform, so the
+   entrance animation and the number counter-rotation are switched off here. */
+.seal-3d { overflow: hidden; }
+.seal-3d .seal-rot { transform: none !important; }
+#seal-3d-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; overflow: visible; }
+.seal-3d .seal-art { opacity: 0.10; }
+.seal-3d .seal-art img { filter: none; }
+.seal-3d .node { margin: 0; animation: none !important; opacity: 1; transition: box-shadow 0.2s, border-color 0.2s, background 0.2s; will-change: left, top, transform; }
+.seal-3d .node span { transform: none !important; }
+.seal-3d .node.is-final { animation: final-breathe 3.2s ease-in-out infinite !important; }

@@ -37,3 +37,17 @@ with the matching API key. Both have free tiers; see `worker/providers.js`.
 
 `public_html/main.js`, near the top: `var GAME_API = "https://play.revenantsystems.net";`
 It is already set to that. If you used a different subdomain, change that one line and re-upload `main.js`.
+
+
+## 2026-09-16 pass: attempts, rings, doors
+
+Server files on the host (`~/deaddrop-api`): `server.mjs`, and in `worker/`: `levels.js`, `guard.js`, `index.js`, `progress.js`, `candles.js`, `store.js`, `reveal.js`, `providers.js`. Restart the app after uploading (the Restart button sometimes needs a second click; check `/deaddrop/health` for `Store: sqlite`).
+
+New environment variables (cPanel Node.js app panel, Dave's hand):
+
+- `ADMIN_TOKEN`: any long random string. Then open `https://www.revenantsystems.net/deaddrop/admin?token=<it>` once in your browser: that browser ignores locks, caps and gating, and can open the résumé door for a mail test. Never share it.
+- `CLUB_INVITE_URL`: the Discord invite shown to players who clear level 10.
+- `APPLY_TO` (default `dave@revenantsystems.net`), `APPLY_FROM` (default `deaddrop@revenantsystems.net`): the level-35 application mail. Applications are also saved under `~/.deaddrop/applications/`; a `MAIL-FAILED.txt` inside one means sendmail refused it.
+- `DAILY_CANDLES` 300, `IP_HOURLY_TURNS` 120, `GLOBAL_DAILY_TURNS` 5000, `LOCK_HOURS` 24: the throttles, all optional.
+
+State lives in `~/.deaddrop/state.sqlite` (player progress, attempts, locks, counters). Player identity is the signed `dd_pid` cookie the server issues; the page no longer invents ids.

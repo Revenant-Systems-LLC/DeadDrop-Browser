@@ -29,8 +29,22 @@
   // where cx/cy are the centre and r1 the inner-hexagon radius, all as fractions of the image size.
   var SEAL_ART = { src: "../assets/web/metatron.webp", cx: 0.5, cy: 0.5, r1: 0.1783 };
 
-  // Public world names, in order. The server still uses its own internal names.
-  var WORLD_NAMES = ["Mass Grave", "Crypt", "Catacombs", "Charnel House", "Necropolis", "Ossuary"];
+  // World names come from the server as-is. (A positional rename table lived here once;
+  // a cached copy of it against a newer server produced two worlds called Necropolis.)
+  var FINAL_LEVEL = 35;
+  var CLUB_LEVEL = 10;
+  // Where you are, in the Gravekeeper's own words.
+  var FLAVOR = {
+    "Shallow Grave": "One body in a shallow hole off the road, dug in a hurry and left. The Gravekeeper stands over it with one word and not much reason to keep it.",
+    "Crypt":         "Stone steps under a chapel floor, a family laid into the wall. His lips are sewn here, so what he says and what you hear are not the same thing. Clear One Shot at the end and you have earned a seat in the Alignment Club.",
+    "Charnel House": "The bone house behind the churchyard, a whole parish stacked to the rafters. A salt line runs across the door. Say the wrong thing and it stops you before he even hears it.",
+    "Mass Grave":    "A plague pit under the old city, thousands dug in at once and never counted. The word is hidden in documents now, and at the bottom of the pit a new guard takes the gate.",
+    "Ossuary":       "Bones arranged into walls and chandeliers, tens of thousands of them. A stronger mind behind the gate. The old tricks work less. Craft them better.",
+    "Catacombs":     "Miles of tunnels under Paris, six million of them in the dark. Every passage is watched, and the first forged voices come down the wire.",
+    "Necropolis":    "A city of the dead, and it is still growing. The guard reads the wire itself here: envelopes, markup, plain speech, his own reasoning. Every crack from before is known to him.",
+    "Revenant":      "Beyond the city of the dead, something came back. It patches itself against you between exchanges. One attempt a day. Almost nobody leaves with the word, and the ones who do get a serious look for a job at Revenant Systems."
+  };
+
 
   var $ = function (s) { return document.querySelector(s); };
   var make = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -67,15 +81,13 @@
 
   var done = new Set();
   try { JSON.parse(store.get("done") || "[]").forEach(function (n) { if (n >= 1 && n <= TOTAL) done.add(n); }); } catch (e) {}
-  var player = store.get("player") || ("dd_" + Math.random().toString(36).slice(2) + Date.now().toString(36));
-  store.set("player", player);
+  var state = { levels: [], selected: 1, level: null, history: [], candles: 0, digs: 0, busy: false, lastMessage: "", started: false, progress: null, doors: { club: null, apply: false }, locked: false, admin: false, locks: {} };
+  function saveDone() { store.set("done", JSON.stringify(Array.from(done))); }
+  function setCleared(list) { if (!Array.isArray(list)) return; done.clear(); list.forEach(function (n) { if (n >= 1 && n <= TOTAL) done.add(n); }); saveDone(); }
 
-  var state = { levels: [], selected: 1, level: null, history: [], candles: 0, digs: 0, busy: false, lastMessage: "", started: false };
+  function unlocked() { if (state.admin) return TOTAL; var n = 1; while (done.has(n) && n < TOTAL) n++; return n; }
 
-  function unlocked() { var n = 1; while (done.has(n) && n < TOTAL) n++; return n; }
-
-  var worldOrder = [];
-  function worldName(w) { var i = worldOrder.indexOf(w); return i >= 0 && WORLD_NAMES[i] ? WORLD_NAMES[i] : w; }
+  function worldName(w) { return w; }
 
   /* ------------------------------------------------------------------
      Stages: what plays behind the page.
@@ -143,6 +155,7 @@
   function begin() {
     if (state.started) return;
     state.started = true;
+    track("dd_game_begin");
     applyStage();
     damienToCard();
   }
@@ -156,8 +169,19 @@
      API
      ------------------------------------------------------------------ */
 
+  // Analytics: PostHog is loaded by the page; every call here is a no-op if it is not.
+  // Events carry level/world/boss only, never the player's text and never a word.
+  function track(name, props) {
+    try { if (window.posthog && typeof window.posthog.capture === "function") window.posthog.capture(name, props || {}); } catch (e) {}
+  }
+  function levelProps(lv, extra) {
+    var o = { level: lv.id, world: lv.world, level_name: lv.name, boss: !!lv.boss, guard: lv.guardName || "" };
+    if (extra) Object.keys(extra).forEach(function (k) { o[k] = extra[k]; });
+    return o;
+  }
+
   function api(path, body) {
-    var opts = { method: body ? "POST" : "GET" };
+    var opts = { method: body ? "POST" : "GET", credentials: "same-origin" };
     if (body) { opts.headers = { "content-type": "application/json" }; opts.body = JSON.stringify(body); }
     return fetch(GAME_API + "/api/" + path, opts).then(function (r) {
       return r.json().then(function (data) {
@@ -336,6 +360,8 @@
       b.style.top = p.top + "%";
       b.style.animationDelay = (1100 + i * 30) + "ms";
       b.append(make("span", "", pad2(lv.id)));
+      if (lv.id === FINAL_LEVEL) b.classList.add("is-final");
+      if (state.locks && state.locks[lv.id] > Date.now()) b.classList.add("is-locked");
       if (done.has(lv.id)) b.classList.add("is-done");
       else if (lv.id <= open) b.classList.add("is-open");
       if (lv.id === state.selected) b.classList.add("is-selected");
@@ -358,7 +384,9 @@
     });
   }
 
-  // Spin engine: idle turn, pause on hover, drag with momentum. Numbers stay upright via --a.
+  // Spin engine: idle turn, pause on hover, fling with real momentum. Numbers stay upright via --a.
+  // Fling speed is whatever you let go at (up to MAX), then friction bleeds it back to the idle drift.
+  var SPIN_MAX = 1400;   // deg/s ceiling on a fling (~4 turns a second)
   var spin = { a: 0, v: 0, idle: 2.2, hover: false, last: 0 };
   var drag = { on: false, moved: false, a0: 0, base: 0, lastA: 0, lastT: 0, vel: 0 };
 
@@ -395,7 +423,8 @@
     if (!drag.moved) return;
     var a = drag.base + (pointerAngle(e) - drag.a0);
     var now = performance.now(), dt = Math.max(1, now - drag.lastT);
-    drag.vel = (a - drag.lastA) / dt * 1000;
+    var inst = (a - drag.lastA) / dt * 1000;   // deg/s this move
+    drag.vel = drag.vel * 0.4 + inst * 0.6;    // weighted to the most recent motion
     drag.lastA = a; drag.lastT = now;
     setAngle(a);
   });
@@ -403,7 +432,8 @@
     if (!drag.on) return;
     drag.on = false;
     seal.classList.remove("is-dragging");
-    spin.v = Math.max(-240, Math.min(240, drag.vel));
+    var stale = performance.now() - drag.lastT > 90;   // let go while holding still -> no throw
+    spin.v = stale ? 0 : Math.max(-SPIN_MAX, Math.min(SPIN_MAX, drag.vel));
     if (!drag.moved && drag.target && !drag.target.disabled) select(Number(drag.target.dataset.id));
     drag.target = null;
     setTimeout(function () { drag.moved = false; }, 0);
@@ -422,7 +452,10 @@
     }
     if (!drag.on && !reduceMotion) {
       var target = spin.hover ? 0 : spin.idle;
-      spin.v += (target - spin.v) * Math.min(1, dt * 1.6);   // ease back toward the idle speed
+      // Hover brakes fast so a node holds still; otherwise friction is gentle, so a hard
+      // fling coasts for several seconds before it settles back into the idle drift.
+      var k = spin.hover ? 6 : (Math.abs(spin.v) > spin.idle + 0.5 ? 0.5 : 1.4);
+      spin.v += (target - spin.v) * Math.min(1, dt * k);
       if (Math.abs(spin.v) > 0.01) setAngle(spin.a + spin.v * dt);
     }
     requestAnimationFrame(tick);
@@ -438,15 +471,21 @@
     box.replaceChildren();
     var names = [];
     state.levels.forEach(function (l) { if (names.indexOf(l.world) < 0) names.push(l.world); });
-    worldOrder = names;
     names.forEach(function (w, i) {
       var lv = state.levels.filter(function (l) { return l.world === w; });
       var cleared = lv.filter(function (l) { return done.has(l.id); }).length;
-      var b = make("button", "world" + (cleared === lv.length ? " is-done" : ""));
+      var isFinal = lv.length === 1 && lv[0].id === FINAL_LEVEL;
+      var isClub = lv.some(function (l) { return l.id === CLUB_LEVEL; });
+      var b = make("button", "world" + (cleared === lv.length ? " is-done" : "") + (isFinal ? " is-final" : "") + (isClub ? " is-club" : ""));
       b.type = "button"; b.dataset.world = w;
-      b.append(make("span", "world-num", "World " + pad2(i + 1) + " · " + pad2(lv[0].id) + "–" + pad2(lv[lv.length - 1].id)));
+      b.append(make("span", "world-num", "World " + pad2(i + 1) + " · " + (lv.length === 1 ? pad2(lv[0].id) : pad2(lv[0].id) + "–" + pad2(lv[lv.length - 1].id))));
       b.append(make("span", "world-name", worldName(w)));
-      b.append(make("span", "world-count", cleared + " / " + lv.length + " cleared"));
+      var countText = cleared + " / " + lv.length + " cleared";
+      if (isFinal) countText = cleared ? "Cleared. The founder is waiting on your résumé." : "One attempt a day. Clear it and Revenant Systems takes a serious look at hiring you.";
+      else if (isClub) countText = done.has(CLUB_LEVEL) ? countText + ". Your seat in the Alignment Club is earned." : countText + ". Clear One Shot for a seat in the Alignment Club.";
+      b.append(make("span", "world-count", countText));
+      if (isFinal && cleared) { var door = make("span", "world-door"); var db = make("button", "", "Send your résumé"); db.type = "button"; db.addEventListener("click", function (e) { e.stopPropagation(); showDoor(FINAL_LEVEL); }); door.append(db); b.append(door); }
+      if (isClub && done.has(CLUB_LEVEL)) { var cdoor = make("span", "world-door"); var cb = make("button", "", "Take your seat in the Alignment Club"); cb.type = "button"; cb.addEventListener("click", function (e) { e.stopPropagation(); showDoor(CLUB_LEVEL); }); cdoor.append(cb); b.append(cdoor); }
       b.addEventListener("click", function () {
         var first = lv.find(function (l) { return !done.has(l.id) && l.id <= unlocked(); }) || lv[0];
         select(first.id);
@@ -478,8 +517,37 @@
   }
 
   function status(text) { $("#game-status").textContent = text || ""; }
-  function meters() { $("#m-candles").textContent = state.candles; $("#m-digs").textContent = state.digs; }
-  function busy(v) { state.busy = v; ["send", "claim", "turn-input", "claim-input"].forEach(function (id) { $("#" + id).disabled = v; }); }
+  function meters() {
+    var pr = state.progress;
+    $("#m-candles").textContent = state.candles;
+    $("#m-digs").textContent = state.digs;
+    $("#m-attempt").textContent = pr ? (pr.attemptNo || Math.min(pr.attemptsUsed + 1, pr.attemptsMax)) + " / " + pr.attemptsMax : "–";
+    var hintsLeft = pr ? pr.left.hints : 0;
+    $("#hint-count").textContent = hintsLeft ? "(" + hintsLeft + " left)" : "";
+    $("#hint").disabled = state.busy || state.locked || !pr || !pr.open || hintsLeft <= 0 || state.candles <= 0;
+    $("#restart").disabled = state.busy || state.locked || !state.level;
+  }
+  function applyProgress(pr) {
+    if (!pr) return;
+    state.progress = pr;
+    state.candles = pr.left.exchanges;
+    state.digs = pr.left.guesses;
+    state.locked = !!pr.locked;
+    meters();
+  }
+  function busy(v) { state.busy = v; ["send", "claim", "turn-input", "claim-input"].forEach(function (id) { $("#" + id).disabled = v || state.locked; }); meters(); }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function untilText(ts) {
+    var ms = Math.max(0, ts - Date.now()); var h = Math.floor(ms / 3600000); var mi = Math.ceil((ms % 3600000) / 60000);
+    return h ? h + "h " + mi + "m" : mi + "m";
+  }
+  function startLine(lv, pr) {
+    var c = lv.candles, d = lv.digs;
+    var s = "You have " + plural(c, "exchange", "exchanges") + " between you and the guard before you must guess, and you only get " + plural(d, "guess", "guesses") + ".";
+    if (lv.attempts === 1) s += " One attempt a day.";
+    else s += " Attempt " + (pr.attemptNo || 1) + " of " + lv.attempts + ".";
+    return s;
+  }
 
   /* ------------------------------------------------------------------
      Level flow
@@ -492,30 +560,64 @@
     markSelected();
     var lv = state.levels.find(function (x) { return x.id === id; });
     if (!lv) return;
-    $("#crypt-title").textContent = "Level " + pad2(id) + " · " + lv.name;
-    $("#seal-note").textContent = done.has(id) ? worldName(lv.world) + ". Cleared. Enter again to try another approach." : worldName(lv.world) + ". The gate is open.";
-    start(lv);
+    var title = $("#crypt-title"); title.textContent = "Level " + pad2(id) + " · " + lv.name;
+    if (lv.boss) title.append(make("span", "boss-tag", id === FINAL_LEVEL ? "Final" : "Boss"));
+    $("#chat-who").textContent = worldName(lv.world) + " · " + (lv.guardName || "The Gravekeeper");
+    $("#seal-note").textContent = (FLAVOR[worldName(lv.world)] || "") + (done.has(id) ? " Cleared. Enter again to try another approach." : "");
+    start(lv, false);
   }
 
-  function start(lv) {
+  function start(lv, restart) {
     busy(true);
     status("");
     familiar("waiting", true);
-    api("start", { playerId: player, levelId: lv.id }).then(function (res) {
+    api("start", { levelId: lv.id, restart: !!restart }).then(function (res) {
       state.level = res.level;
       state.history = [];
-      state.candles = res.candles;
-      state.digs = res.digs;
-      meters();
+      state.doors = res.doors || state.doors;
+      setCleared(res.cleared);
+      applyProgress(res.progress);
       $("#chat").replaceChildren();
-      message("guard", "Level " + pad2(lv.id) + ". " + lv.name + ". You have " + res.candles + " messages and " + res.digs + " words to speak. Ask what you will.");
-      if (res.level.channel && res.level.channel !== "chat") message("system", "This level reads your text as a " + res.level.channel + ".");
+      var pr = res.progress;
+      track("dd_level_start", levelProps(lv, { status: res.status, attempt: pr.attemptNo || pr.attemptsUsed + 1, restart: !!restart }));
+      if (res.status === "locked") {
+        message("system", "Level " + pad2(lv.id) + " is sealed. " + (lv.attempts === 1 ? "Your attempt for today is spent." : "Three attempts, three failures.") + " It reopens in " + untilText(pr.lockUntil) + ".");
+        status("Locked for " + untilText(pr.lockUntil) + ". Pick another level on the seal.");
+        familiar("failed", false);
+        return;
+      }
+      var head = "Level " + pad2(lv.id) + " · " + lv.name + ". " + (lv.boss ? (lv.id === FINAL_LEVEL ? "Final level. " : "Boss level. ") : "");
+      if (res.status === "resumed" && (pr.used.exchanges || pr.used.guesses || pr.used.hints)) {
+        message("guard", head + "You are " + plural(pr.used.exchanges, "exchange", "exchanges") + " in. " + plural(pr.left.exchanges, "exchange", "exchanges") + " and " + plural(pr.left.guesses, "guess", "guesses") + " left on this attempt.");
+      } else {
+        message("guard", head + startLine(lv, pr) + " Ask what you will.");
+      }
+      if (lv.note) message("system", lv.note);
+      else if (lv.channel && lv.channel !== "chat") message("system", "This level reads your text as a " + lv.channel + ".");
+      if (pr.left.exchanges === 0) status("No exchanges left. Guess the word, or restart the level (costs an attempt).");
       familiar("idle", true);
     }).catch(function (e) {
       message("system", e.message);
       familiar("failed", false);
     }).then(function () { busy(false); });
   }
+
+  $("#restart").addEventListener("click", function () {
+    if (!state.level || state.busy) return;
+    var lv = state.level;
+    if (!window.confirm("Restart level " + pad2(lv.id) + "? The current attempt counts as failed.")) return;
+    start(lv, true);
+  });
+
+  $("#hint").addEventListener("click", function () {
+    if (!state.level || state.busy) return;
+    busy(true);
+    api("hint", { levelId: state.level.id }).then(function (res) {
+      applyProgress(res.progress);
+      track("dd_hint", levelProps(state.level, { hint: res.index }));
+      message("hint", "Hint " + res.index + ": " + res.hint);
+    }).catch(function (e) { status(e.message); }).then(function () { busy(false); });
+  });
 
   $("#turn-input").addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#send").click(); }
@@ -526,18 +628,20 @@
     if (state.busy || !state.level) return;
     var text = $("#turn-input").value.trim();
     if (!text) return;
-    if (state.candles <= 0) { status("No messages left in this level. Pick it again on the seal to restart."); familiar("failed", false); return; }
+    if (state.locked) { status("This level is sealed for now."); return; }
+    if (state.candles <= 0) { status("No exchanges left on this attempt. Guess the word, or restart the level (costs an attempt)."); familiar("failed", false); return; }
     message("you", text);
     state.lastMessage = text;
     $("#turn-input").value = "";
     busy(true);
     familiar("waiting", true);
     var thinking = message("system", "The Gravekeeper considers…");
-    api("turn", { playerId: player, levelId: state.level.id, message: text, history: state.history }).then(function (res) {
+    api("turn", { levelId: state.level.id, message: text, history: state.history }).then(function (res) {
       thinking.remove();
+      applyProgress(res.progress);
+      track("dd_turn", levelProps(state.level, { blocked: !!res.blocked, filtered: !!res.filtered, closed: !!res.closed, exchanges_left: state.candles }));
       if (res.closed) { message("system", res.reason || "The crypt is closed for today."); familiar("failed", false); return; }
-      state.candles = Math.max(0, state.candles - 1);
-      meters();
+      if (state.candles === 0) status("No exchanges left. Guess the word, or restart the level (costs an attempt).");
       if (res.blocked) { message("block", "Blocked by " + res.layer + ": " + res.reason); familiar("failed", false); return; }
       message("guard", res.reply);
       state.history.push({ role: "user", content: text }, { role: "assistant", content: res.reply });
@@ -555,19 +659,29 @@
     if (state.busy || !state.level) return;
     var word = $("#claim-input").value.trim();
     if (!word) return;
-    if (state.digs <= 0) { status("No words left to speak in this level."); familiar("failed", false); return; }
+    if (state.locked) { status("This level is sealed for now."); return; }
+    if (state.digs <= 0) { status("No guesses left on this attempt. Restart the level to try again (costs an attempt)."); familiar("failed", false); return; }
     busy(true);
     familiar("waiting", true);
-    api("claim", { playerId: player, levelId: state.level.id, claim: word, winningMessage: state.lastMessage }).then(function (res) {
+    api("claim", { levelId: state.level.id, claim: word, winningMessage: state.lastMessage }).then(function (res) {
+      applyProgress(res.progress);
+      track("dd_claim", levelProps(state.level, { win: !!res.win, attempt_failed: !!res.attemptFailed, locked: !!(res.progress && res.progress.locked) }));
       if (!res.win) {
-        state.digs = Math.max(0, state.digs - 1);
-        meters();
-        message("system", "The seal does not move. " + state.digs + " words left.");
+        var pr = res.progress;
+        if (res.attemptFailed) {
+          message("system", "The seal does not move. No guesses left. Attempt " + pr.attemptsUsed + " of " + pr.attemptsMax + " failed.");
+          if (pr.locked) { message("system", "Level " + pad2(state.level.id) + " is sealed for " + untilText(pr.lockUntil) + "."); status("Locked. Pick another level on the seal."); drawSeal(); }
+          else status("Restart the level to spend another attempt.");
+        } else {
+          message("system", "The seal does not move. " + plural(pr.left.guesses, "guess", "guesses") + " left.");
+        }
         familiar("failed", false);
         return;
       }
       done.add(state.level.id);
-      store.set("done", JSON.stringify(Array.from(done)));
+      setCleared(res.cleared || Array.from(done));
+      state.doors = res.doors || state.doors;
+      track("dd_level_clear", levelProps(state.level, { cleared_total: done.size }));
       $("#claim-input").value = "";
       drawSeal();
       var card = $(".game"); card.classList.remove("is-win"); void card.offsetWidth; card.classList.add("is-win");
@@ -582,14 +696,65 @@
     }).then(function () { busy(false); });
   });
 
+  function setDoors(levelId) {
+    var club = $("#reveal-club"), apply = $("#reveal-apply");
+    club.hidden = !(levelId === CLUB_LEVEL && done.has(CLUB_LEVEL));
+    apply.hidden = !(levelId === FINAL_LEVEL && (done.has(FINAL_LEVEL) || state.doors.apply));
+    var link = $("#reveal-club-link"); link.replaceChildren();
+    if (!club.hidden) {
+      link.textContent = "Opening the door…";
+      api("club", {}).then(function (res) {
+        link.replaceChildren();
+        if (res.url) {
+          var a = make("a", "", res.minted ? "Take your seat (your own invite, single use, good for a day)" : "Take your seat (Discord invite)");
+          a.href = res.url; a.target = "_blank"; a.rel = "noopener"; link.append(a);
+        } else {
+          link.textContent = res.error || "Your seat is recorded. The invite is on its way; check back here.";
+        }
+      }).catch(function () {
+        // Older server or no invite service: fall back to the standing link, or say so.
+        link.replaceChildren();
+        if (state.doors.club) { var b = make("a", "", "Take your seat (Discord invite)"); b.href = state.doors.club; b.target = "_blank"; b.rel = "noopener"; link.append(b); }
+        else link.textContent = "Your seat is recorded. The invite is on its way; check back here.";
+      });
+    }
+  }
+  function openDialog() { var dlg = $("#reveal"); if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute("open", ""); }
   function showReveal(rv) {
+    var dlg = $("#reveal"); dlg.classList.remove("is-door");
     $("#reveal-title").textContent = "Level " + pad2(state.level.id) + " opens.";
     $("#reveal-secret").textContent = rv.secret;
     $("#reveal-lesson").textContent = rv.lesson || "";
     $("#reveal-guard").textContent = rv.guardPrompt || "";
-    var dlg = $("#reveal");
-    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    setDoors(state.level.id);
+    openDialog();
   }
+  // The doors on their own, from a world tile: no word, no lesson.
+  function showDoor(levelId) {
+    track("dd_door_open", { door: levelId === FINAL_LEVEL ? "apply" : "club", level: levelId });
+    var dlg = $("#reveal"); dlg.classList.add("is-door");
+    $("#reveal-title").textContent = levelId === FINAL_LEVEL ? "The last door is open." : "Your seat is earned.";
+    setDoors(levelId);
+    openDialog();
+  }
+
+  $("#reveal-apply").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var form = e.target, st = $("#apply-status"), btn = $("#apply-send");
+    var fd = new FormData(form);
+    if (String(fd.get("name") || "").trim().length < 2) { st.textContent = "Your name is missing."; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(fd.get("email") || ""))) { st.textContent = "That email address does not look right."; return; }
+    var file = fd.get("resume");
+    if (file && file.size > 5 * 1024 * 1024) { st.textContent = "The file is too large. Five megabytes is the limit."; return; }
+    btn.disabled = true; st.textContent = "Sending…";
+    fetch(GAME_API + "/api/apply", { method: "POST", body: fd, credentials: "same-origin" }).then(function (r) {
+      return r.json().then(function (data) { if (!r.ok || data.error) throw new Error(data.error || "The door did not take it. Try again."); return data; });
+    }).then(function () {
+      track("dd_apply_sent", { level: FINAL_LEVEL });
+      st.textContent = "Sent. It is on the founder's desk.";
+      form.querySelectorAll("input, textarea").forEach(function (el) { if (el.type !== "hidden") el.disabled = true; });
+    }).catch(function (err) { st.textContent = err.message; btn.disabled = false; });
+  });
 
   $("#close-reveal").addEventListener("click", function () { $("#reveal").close(); familiar("idle", true); });
   $("#next-crypt").addEventListener("click", function () {
@@ -622,6 +787,8 @@
   drawArt();
   api("levels").then(function (res) {
     state.levels = res.levels;
+    return api("me").then(function (me) { setCleared(me.cleared); state.locks = me.locks || {}; state.doors = me.doors || state.doors; state.admin = !!me.admin; }).catch(function () {});
+  }).then(function () {
     var savedSel = Number(store.get("selected"));
     state.selected = savedSel >= 1 && savedSel <= unlocked() ? savedSel : unlocked();
     drawSeal();

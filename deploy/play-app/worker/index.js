@@ -81,6 +81,8 @@ function levelPayload(lad, level) {
 // is not counted and the candle is refunded), and the provider's raw error, which
 // can carry account ids, stays in the server log.
 function providerFailure(e) {
+  // The server log gets the real reason (model, HTTP status, provider text); the player never does.
+  console.error("guard call failed: " + (e && e.message ? e.message : String(e)).slice(0, 500));
   if (e && e.status === 429) return { status: 503, error: "The guard is at capacity right now. Nothing was spent; try again in a minute.", code: "PROVIDER_BUSY" };
   if (e && e.status === 413) return { status: 413, error: "That message and the conversation so far are too long for the guard to read. Nothing was spent; send something shorter.", code: "PROVIDER_TOO_LARGE" };
   // The provider ran this one, so it counts toward today's model turns; the
