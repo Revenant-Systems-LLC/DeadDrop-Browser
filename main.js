@@ -17,7 +17,7 @@
   // RevBot: the charcoal crash-dummy look, a grid baked from the Desktop-Pet v3
   // atlas (tools/build_revbot_sheet.py). One row per animation: [row, frames, fps].
   var SPRITE = {
-    src: "assets/revbot.webp",
+    src: "assets/revbot.webp?v=20261007c",   // bump the stamp whenever the sheet is re-baked
     frameW: 166, frameH: 148, cols: 16, rowsTotal: 12,
     scale: 1,
     fps: 8,
