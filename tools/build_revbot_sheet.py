@@ -1,94 +1,100 @@
-"""Bake RevBot's web sprite sheet from the Desk Pet Maker example sheet.
+"""Bake RevBot's web sprite sheet from the Desktop-Pet v3 atlas (the charcoal,
+yellow-striped look cut from Dave's videos; NOT the red 1.0 example sheet).
 
-Reads  M:/Projects/Desk-Pet-Maker/template/revbot-example-clean.png (+ sheet-spec.json)
+Reads  M:/Projects/Desktop-Pet/src/DesktopPet/Assets/atlas.{json,png}
 Writes deploy/public_html/assets/revbot.webp and assets/revbot.webp
 Prints the SPRITE block for main.js.
 
-The source is the 2048 x 2560 pet sheet: 10 rows, 8 columns, 256 px cells, feet
-on the ground line. The page needs a smaller fixed-cell grid with one row per
-animation it plays, so each used cell is cropped to a common box around the
-drawing and scaled down; a left-walking row is a horizontal flip of the walk.
+The page plays a fixed-cell grid, one row per animation, frames left to right,
+feet anchored at the cell's bottom centre (the atlas carries ox/oy per frame).
+Long clips are thinned to MAX_FRAMES; each row keeps its own fps so thinning
+does not change the speed on screen.
 """
 import json
 from pathlib import Path
 from PIL import Image
 
-SRC = Path("M:/Projects/Desk-Pet-Maker/template")
+PET = Path("M:/Projects/Desktop-Pet/src/DesktopPet/Assets")
 SITE = Path(__file__).resolve().parents[1]
 OUT = [SITE / "deploy/public_html/assets/revbot.webp", SITE / "assets/revbot.webp"]
 
-SCALE = 0.45                       # 256 px cell -> ~101 px on the page (Damien was 104)
-# web row -> (sheet row, flip)
+SCALE = 0.6           # 172 px tall at source -> ~103 px on the page
+MAX_FRAMES = 16
+
+# web row -> (atlas clip, flip)
 ROWS = [
-    ("idle",     "idle",  False),
-    ("runRight", "walk",  False),
-    ("runLeft",  "walk",  True),
-    ("wave",     "wave",  False),
-    ("jump",     "jump",  False),
-    ("failed",   "oops",  False),
-    ("waiting",  "think", False),
-    ("running",  "work",  False),
-    ("review",   "happy", False),
-    ("sleep",    "sleep", False),
-    ("held",     "held",  False),
+    ("idle",     "idle",       False),
+    ("runRight", "walk_right", False),
+    ("runLeft",  "walk_right", True),
+    ("wave",     "wave",       False),
+    ("jump",     "jump",       False),
+    ("failed",   "failed",     False),
+    ("waiting",  "waiting",    False),
+    ("running",  "working",    False),
+    ("review",   "review",     False),
+    ("happy",    "happy",      False),
+    ("sleep",    "sleeping",   False),
+    ("held",     "held",       False),
 ]
 
-spec = json.loads((SRC / "sheet-spec.json").read_text(encoding="utf-8"))
-cell, cols = spec["cell"], spec["columns"]
-srow = {r["name"]: (i, r) for i, r in enumerate(spec["rows"])}
-im = Image.open(SRC / "revbot-example-clean.png").convert("RGBA")
-alpha = im.getchannel("A")
+atlas = json.loads((PET / "atlas.json").read_text(encoding="utf-8"))
+sheet = Image.open(PET / "atlas.png").convert("RGBA")
+frames = {}
+for f in atlas["frames"]:
+    frames.setdefault(f["row"], {})[f["index"]] = f
 
-# frames per row = drawn cells, left to right
-def frames_in(row_index):
-    n = 0
-    for c in range(cols):
-        if alpha.crop((c * cell, row_index * cell, (c + 1) * cell, (row_index + 1) * cell)).getbbox():
-            n = c + 1
-    return n
 
-used = []
-for web, name, flip in ROWS:
-    ri, r = srow[name]
-    n = frames_in(ri)
-    if n:
-        used.append((web, ri, flip, n, r["fps"]))
+def thin(seq, n):
+    if len(seq) <= n:
+        return list(seq)
+    return [seq[round(i * (len(seq) - 1) / (n - 1))] for i in range(n)]
 
-# one crop box for every used cell, symmetric about the cell's centre x so a flip
-# keeps the feet in place
-x0 = y0 = 10**9; x1 = y1 = 0
-for _, ri, _, n, _ in used:
-    for c in range(n):
-        b = alpha.crop((c * cell, ri * cell, (c + 1) * cell, (ri + 1) * cell)).getbbox()
-        x0, y0, x1, y1 = min(x0, b[0]), min(y0, b[1]), max(x1, b[2]), max(y1, b[3])
-half = max(cell / 2 - x0, x1 - cell / 2) + 4
-bx0, bx1 = int(cell / 2 - half), int(cell / 2 + half)
-by0, by1 = max(0, y0 - 4), min(cell, spec["ground_y"] + 6)
-cw, chh = bx1 - bx0, by1 - by0
-ow, oh = round(cw * SCALE), round(chh * SCALE)
-maxn = max(u[3] for u in used)
-out = Image.new("RGBA", (ow * maxn, oh * len(used)), (0, 0, 0, 0))
-for r, (web, ri, flip, n, fps) in enumerate(used):
-    for c in range(n):
-        f = im.crop((c * cell + bx0, ri * cell + by0, c * cell + bx1, ri * cell + by1))
+
+rows = []
+for web, clip, flip in ROWS:
+    c = atlas["clips"][clip]
+    seq = thin(c["frames"], MAX_FRAMES)
+    fps = c["fps"] * len(seq) / len(c["frames"])   # keep the clip's wall-clock length
+    rows.append((web, clip, flip, seq, round(fps, 2), c["loop"]))
+
+# one cell for every used frame: widest reach either side of the feet, tallest crown
+left = right = up = 0
+for _, clip, _, seq, _, _ in rows:
+    for i in seq:
+        f = frames[clip][i]
+        left = max(left, -f["ox"]); right = max(right, f["w"] + f["ox"]); up = max(up, -f["oy"])
+half = max(left, right)                      # symmetric, so a flipped row keeps its feet in place
+cw = int(round(2 * half * SCALE)) + 2
+ch = int(round(up * SCALE)) + 2
+cols = max(len(r[3]) for r in rows)
+out = Image.new("RGBA", (cw * cols, ch * len(rows)), (0, 0, 0, 0))
+ax, ay = cw // 2, ch - 1                     # feet: bottom centre of the cell
+
+for r, (web, clip, flip, seq, fps, loop) in enumerate(rows):
+    for k, i in enumerate(seq):
+        f = frames[clip][i]
+        im = sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"]))
+        w, h = max(1, round(f["w"] * SCALE)), max(1, round(f["h"] * SCALE))
+        im = im.resize((w, h), Image.LANCZOS)
+        ox, oy = f["ox"], f["oy"]
         if flip:
-            f = f.transpose(Image.FLIP_LEFT_RIGHT)
-        f = f.resize((ow, oh), Image.LANCZOS)
-        out.alpha_composite(f, (c * ow, r * oh))
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
+            ox = -(f["w"] + ox)
+        out.alpha_composite(im, (k * cw + ax + int(round(ox * SCALE)), r * ch + ay + int(round(oy * SCALE))))
 
 for p in OUT:
     p.parent.mkdir(parents=True, exist_ok=True)
-    out.save(p, "WEBP", quality=90, method=6)
+    out.save(p, "WEBP", quality=88, method=6)
     print(p, p.stat().st_size, "bytes")
 
-print(f"sheet {out.size[0]}x{out.size[1]}  cell {ow}x{oh}  cols {maxn}  rows {len(used)}")
+print(f"sheet {out.size[0]}x{out.size[1]}  cell {cw}x{ch}  cols {cols}  rows {len(rows)}")
 print("  var SPRITE = {")
 print('    src: "assets/revbot.webp",')
-print(f"    frameW: {ow}, frameH: {oh}, cols: {maxn}, rowsTotal: {len(used)},")
+print(f"    frameW: {cw}, frameH: {ch}, cols: {cols}, rowsTotal: {len(rows)},")
 print("    scale: 1,")
 print("    fps: 8,")
 print("    rows: {   // [row, frames, fps]")
-for r, (web, ri, flip, n, fps) in enumerate(used):
-    print(f"      {web}: [{r}, {n}, {fps}],")
+for r, (web, clip, flip, seq, fps, loop) in enumerate(rows):
+    print(f"      {web}: [{r}, {len(seq)}, {fps}],")
 print("    },")
 print("  };")

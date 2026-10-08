@@ -14,17 +14,17 @@
   // whichever campaign is live.
   var TOTAL = 15;
 
-  // RevBot: a grid baked from the Desk Pet Maker sheet (tools/build_revbot_sheet.py).
-  // One row per animation: [row, frames, fps].
+  // RevBot: the charcoal crash-dummy look, a grid baked from the Desktop-Pet v3
+  // atlas (tools/build_revbot_sheet.py). One row per animation: [row, frames, fps].
   var SPRITE = {
     src: "assets/revbot.webp",
-    frameW: 117, frameH: 98, cols: 8, rowsTotal: 11,
+    frameW: 166, frameH: 148, cols: 16, rowsTotal: 12,
     scale: 1,
     fps: 8,
     rows: {
-      idle: [0, 4, 6], runRight: [1, 8, 8], runLeft: [2, 8, 8], wave: [3, 4, 8], jump: [4, 5, 10],
-      failed: [5, 8, 8], waiting: [6, 4, 5], running: [7, 6, 8], review: [8, 5, 8],
-      sleep: [9, 5, 4], held: [10, 1, 6],
+      idle: [0, 16, 3.56], runRight: [1, 12, 12], runLeft: [2, 12, 12], wave: [3, 16, 8.73], jump: [4, 16, 5.65],
+      failed: [5, 16, 3.88], waiting: [6, 16, 4.36], running: [7, 16, 6.86], review: [8, 16, 3.66],
+      happy: [9, 16, 12], sleep: [10, 16, 2.13], held: [11, 16, 11.29],
     },
   };
 
